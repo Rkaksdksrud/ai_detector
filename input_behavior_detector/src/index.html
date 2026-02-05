@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI & Copy-Paste Detector Collector</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        h2 { color: #333; border-bottom: 2px solid #0078d4; padding-bottom: 10px; }
+        .container { display: flex; flex-direction: column; gap: 15px; }
+        textarea { width: 100%; height: 400px; padding: 15px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; resize: none; }
+        textarea:focus { outline: none; border-color: #0078d4; box-shadow: 0 0 5px rgba(0,120,212,0.3); }
+        .controls { display: flex; justify-content: space-between; align-items: center; background: #f5f5f5; padding: 15px; border-radius: 8px; }
+        .status { font-size: 14px; color: #666; }
+        .btn-group { display: flex; gap: 10px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-save { background-color: #0078d4; color: white; }
+        .btn-save:hover { background-color: #005a9e; }
+        .btn-reset { background-color: #e1e1e1; color: #333; }
+    </style>
+</head>
+<body>
+
+    <h2>데이터 수집: 작성 패턴 기록</h2>
+    <p>글을 직접 쓰거나, AI가 쓴 글을 복사해서 붙여넣어 보세요. 모든 입력 로그가 기록됩니다.</p>
+
+    <div class="container">
+        <textarea id="input-area" placeholder="여기에 내용을 입력하거나 붙여넣으세요..."></textarea>
+        
+        <div class="controls">
+            <div class="status">
+                입력 로그: <span id="log-count">0</span>개 | 
+                마지막 작업: <span id="last-action">-</span>
+            </div>
+            <div class="btn-group">
+                <button class="btn-reset" onclick="resetData()">초기화</button>
+                <button class="btn-save" onclick="downloadJSON()">JSON 다운로드</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventLogs = [];
+        const inputArea = document.getElementById('input-area');
+        const logCountDisp = document.getElementById('log-count');
+        const lastActionDisp = document.getElementById('last-action');
+
+        // 1. 키보드 입력 로그 수집 (타이핑 리듬 분석용)
+        inputArea.addEventListener('keydown', (e) => {
+            const timestamp = Date.now();
+            eventLogs.push({
+                type: 'keydown',
+                key: e.key,
+                time: timestamp,
+                cursor: inputArea.selectionStart
+            });
+            updateStatus('Typing');
+        });
+
+        // 2. 복사 붙여넣기 감지 (복붙 판단 핵심 로직)
+        inputArea.addEventListener('paste', (e) => {
+            const timestamp = Date.now();
+            const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+            eventLogs.push({
+                type: 'paste',
+                contentLength: pasteData.length,
+                time: timestamp,
+                textSample: pasteData.substring(0, 30) // 샘플 확인용
+            });
+            updateStatus('Paste');
+        });
+
+        function updateStatus(action) {
+            logCountDisp.innerText = eventLogs.length;
+            lastActionDisp.innerText = action;
+        }
+
+        function resetData() {
+            if(confirm('모든 기록을 초기화할까요?')) {
+                eventLogs = [];
+                inputArea.value = '';
+                updateStatus('-');
+            }
+        }
+
+        // 3. 수집 데이터를 JSON 파일로 내보내기
+        function downloadJSON() {
+            if (eventLogs.length === 0) {
+                alert("기록된 데이터가 없습니다.");
+                return;
+            }
+
+            const dataToSave = {
+                metadata: {
+                    collectedAt: new Date().toISOString(),
+                    userAgent: navigator.userAgent,
+                    totalTextLength: inputArea.value.length
+                },
+                content: inputArea.value,
+                events: eventLogs
+            };
+
+            const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `raw_data_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

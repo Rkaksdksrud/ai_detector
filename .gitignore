@@ -1,0 +1,7 @@
+data/
+datasets/
+*.zip
+*.tar.gz
+*.csv
+XDAC_obs/
+
